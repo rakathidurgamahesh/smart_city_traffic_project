@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart City Traffic Dashboard</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>🚦 Smart City Traffic Dashboard</h1>
+    <div id="last-updated" class="muted">Loading...</div>
+    <div class="header-right"><span class="pill"><i class="live-dot"></i>LIVE</span><span id="clock" class="muted"></span></div>
+  </header>
+
+  <section class="summary-row" id="summary-cards">
+    <div class="card"><div class="card-value" id="stat-roads">-</div><div class="card-label">Roads</div></div>
+    <div class="card"><div class="card-value" id="stat-sensors">-</div><div class="card-label">Sensors</div></div>
+    <div class="card"><div class="card-value" id="stat-readings">-</div><div class="card-label">Readings logged</div></div>
+    <div class="card action-card">
+      <button id="run-forecast-btn">Re-run forecast</button>
+      <div class="muted small" id="forecast-status"></div>
+    </div>
+  </section>
+
+  <section class="kpi-row">
+    <div class="card"><div class="card-value" id="kpi-index">-</div><div class="card-label">Congestion index (now)</div><div class="meter"><i id="kpi-meter"></i></div></div>
+    <div class="card"><div class="card-value" id="kpi-speed">-</div><div class="card-label">Avg speed (km/h)</div></div>
+    <div class="card"><div class="card-value" id="kpi-alerts">-</div><div class="card-label">Active alerts</div></div>
+    <div class="card"><div class="card-value small-val" id="kpi-busiest">-</div><div class="card-label">Busiest road</div></div>
+    <div class="card"><div class="card-value" id="kpi-peak">-</div><div class="card-label">City peak hour</div></div>
+  </section>
+
+  <main class="grid">
+
+    <section class="panel">
+      <h2>Average traffic volume by road</h2>
+      <div class="chart-container"><canvas id="volume-chart"></canvas></div>
+    </section>
+
+    <section class="panel">
+      <h2>Road network</h2>
+      <div class="hour-control">
+        <label for="graph-hour">Hour:</label>
+        <input type="range" id="graph-hour" min="0" max="23" value="9">
+        <span id="graph-hour-label">09:00</span>
+      </div>
+      <svg id="network-svg" viewBox="0 0 520 320"></svg>
+      <div class="legend">
+        <span class="legend-item"><i class="dot low"></i>Low</span>
+        <span class="legend-item"><i class="dot moderate"></i>Moderate</span>
+        <span class="legend-item"><i class="dot high"></i>High</span>
+        <span class="legend-item"><i class="dot severe"></i>Severe</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Predicted hotspots</h2>
+      <div class="table-wrap">
+        <table id="hotspots-table">
+          <thead><tr><th>Road</th><th>Hour</th><th>Predicted volume</th><th>Level</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Find least-congested route</h2>
+      <form id="route-form">
+        <label>From <select id="route-from"></select></label>
+        <label>To <select id="route-to"></select></label>
+        <label>Hour <input type="number" id="route-hour" min="0" max="23" value="9"></label>
+        <button type="submit">Find route</button>
+      </form>
+      <div id="route-result" class="muted"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Record a sensor reading</h2>
+      <form id="reading-form">
+        <label>Road
+          <select id="reading-road"></select>
+        </label>
+        <label>Sensor
+          <select id="reading-sensor"></select>
+        </label>
+        <label>Vehicle count
+          <input type="number" id="reading-count" min="0" required>
+        </label>
+        <label>Avg speed (km/h)
+          <input type="number" id="reading-speed" min="0" step="0.1" required>
+        </label>
+        <button type="submit">Submit reading</button>
+      </form>
+      <div id="reading-status" class="muted"></div>
+    </section>
+
+
+    <section class="panel wide">
+      <h2>City traffic by hour <span class="muted small">actual vs regression forecast, with average speed</span></h2>
+      <div class="chart-container tall"><canvas id="trend-chart"></canvas></div>
+    </section>
+
+    <section class="panel wide">
+      <h2>Congestion heatmap <span class="muted small">predicted level per road, 00-23h (current hour outlined)</span></h2>
+      <div id="heatmap"></div>
+    </section>
+
+    <section class="panel wide">
+      <h2>Road details <span class="muted small">click a row for its 24-hour forecast</span></h2>
+      <div class="table-wrap"><table id="roads-table">
+        <thead><tr><th>Road</th><th>Route</th><th>Length</th><th>Lanes</th><th>Sensors</th><th>Avg volume</th><th>Avg speed</th><th>Peak</th><th>Now</th></tr></thead>
+        <tbody></tbody></table></div>
+      <h3 id="drill-title" class="muted">Select a road above</h3>
+      <div class="chart-container"><canvas id="road-chart"></canvas></div>
+    </section>
+
+    <section class="panel">
+      <h2>Alerts</h2>
+      <ul id="alerts-list" class="feed"></ul>
+    </section>
+
+    <section class="panel">
+      <h2>Sensor fleet</h2>
+      <div class="chart-container"><canvas id="sensor-chart"></canvas></div>
+    </section>
+
+    <section class="panel wide">
+      <h2>Recent sensor readings <span class="muted small">auto-refreshes every 30s</span></h2>
+      <div class="table-wrap"><table id="recent-table">
+        <thead><tr><th>Time</th><th>Road</th><th>Sensor</th><th>Type</th><th>Vehicles</th><th>Speed (km/h)</th></tr></thead>
+        <tbody></tbody></table></div>
+    </section>
+  </main>
+
+  <footer class="panel about">
+    <h2>About this project</h2>
+    <p class="muted">Sensors write readings to a shared SQLite database (DBMS: ER model + SQL aggregation). A Python harmonic regression forecasts hourly congestion (Python). Roads form a weighted graph and Dijkstra finds least-congested routes (ADSA). The Java console app (OOPJ) and this Flask + JavaScript dashboard both read the same data.</p>
+    <div class="tags"><span>DBMS</span><span>DMGT</span><span>ADSA</span><span>OOPJ</span><span>Python</span><span>Flask</span><span>Chart.js</span></div>
+  </footer>
+
+<script src="app.js"></script>
+<script src="extras.js"></script>
+</body>
+</html>
