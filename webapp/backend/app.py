@@ -17,6 +17,7 @@ Then open http://localhost:5000 in a browser.
 import os
 import sqlite3
 import sys
+import numpy as np
 from datetime import datetime, timedelta
 
 from flask import Flask, g, jsonify, request, send_from_directory
